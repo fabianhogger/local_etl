@@ -30,7 +30,7 @@ class FileHandler(FileSystemEventHandler):
         # Verifica se il file creato è un CSV
         if event.is_directory:
             return
-        if event.src_path.endswith(".txt"):
+        if event.src_path.endswith(".csv"):
             print(f"Nuovo file trovato: {event.src_path}")
             self.load_csv_to_db(event.src_path)
 
@@ -41,7 +41,10 @@ class FileHandler(FileSystemEventHandler):
             return
         
         try:
-            df = pd.read_csv(csv_file_path, sep=",", skiprows=1)
+            df = pd.read_csv(csv_file_path, sep=",", skiprows=1, lineterminator="\n")
+            #technical fieds
+            df.insert(0,"insert_in_raw_timestamp",datetime.now())  
+            df.insert(1,"row_number",range(0,len(df)))  
             table_name ,columns=get_table(csv_file_path)
             insert_query = f"""
                 INSERT INTO {table_name} ({','.join(columns)})
@@ -50,11 +53,16 @@ class FileHandler(FileSystemEventHandler):
             batch_size = 10000  # Number of rows per batch
             num_batches = len(df) // batch_size + 1
 
+           
             for i in range(num_batches):
-                batch_df = df.iloc[i * batch_size:(i + 1) * batch_size]
-                execute_values(self.    cursor, insert_query, batch_df.values)
-                self.conn.commit()            
+                try:
+                    batch_df = df.iloc[i * batch_size:(i + 1) * batch_size]
+                    execute_values(self.cursor, insert_query, batch_df.values)
+                    self.conn.commit()
+                    print("Insert status:", self.cursor.statusmessage)  # Should print "INSERT 0 X"
 
+                except psycopg2.Error as e:
+                    print("Error:", e)            
             print(f"Dati da {csv_file_path} inseriti correttamente nella tabella.")
         except Exception as e:
             self.conn.rollback()  # Se c'è un errore, rollback della transazione
