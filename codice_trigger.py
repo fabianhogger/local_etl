@@ -6,6 +6,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import uuid
 from datetime import datetime
+from psycopg2.extras import execute_values
 
 # Classe di gestione degli eventi
 class FileHandler(FileSystemEventHandler):
@@ -15,7 +16,7 @@ class FileHandler(FileSystemEventHandler):
             self.conn = psycopg2.connect(
                 dbname="postgres",
                 user="postgres",
-                password="123456",
+                password="123456789",
                 host="localhost",
                 port="5432"
             )
@@ -43,15 +44,15 @@ class FileHandler(FileSystemEventHandler):
             df = pd.read_csv(csv_file_path, sep=",", skiprows=1)
             table_name ,columns=get_table(csv_file_path)
             insert_query = f"""
-                INSERT INTO {table_name} ({columns.join(',')})
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO {table_name} ({','.join(columns)})
+                VALUES %s
             """
             batch_size = 10000  # Number of rows per batch
             num_batches = len(df) // batch_size + 1
 
             for i in range(num_batches):
                 batch_df = df.iloc[i * batch_size:(i + 1) * batch_size]
-                execute_values(cursor, insert_query, batch_df.values)
+                execute_values(self.    cursor, insert_query, batch_df.values)
                 self.conn.commit()            
 
             print(f"Dati da {csv_file_path} inseriti correttamente nella tabella.")
