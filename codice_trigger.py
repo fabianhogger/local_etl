@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime
 from psycopg2.extras import execute_values
 import logging
+from dotenv import load_dotenv
 
 logging.basicConfig(filename='log/myapp.log',level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -17,11 +18,11 @@ class FileHandler(FileSystemEventHandler):
         try:
             # Configurazione della connessione al database
             self.conn = psycopg2.connect(
-                dbname="postgres",
-                user="postgres",
-                password="123456789",
-                host="localhost",
-                port="5432"
+                dbname=os.getenv("db_name"),
+                user=os.getenv("db_user"),
+                password=os.getenv("db_password"),
+                host=os.getenv("db_host"),
+                port=os.getenv("db_port")
             )
             self.cursor = self.conn.cursor()
         except Exception as e:
@@ -83,7 +84,7 @@ class FileHandler(FileSystemEventHandler):
 
     def get_table(self,csv_file_path):
         try:
-            dir_name=csv_file_path.replace("/home/fabian/Documents/data_eng/local_etl/landing"+"/","").split('/')[-2]
+            dir_name=csv_file_path.replace(os.getenv("base_dir")+"/","").split('/')[-2]
             columns = self.schema.get(dir_name)
 
             if columns is None:
@@ -110,7 +111,8 @@ def start_directory_monitor(directory_path):
     observer.join()
 
 if __name__ == "__main__":
+    load_dotenv()
     # Percorso della directory da monitorare
-    directory_to_monitor = r"/home/fabian/Documents/data_eng/local_etl/landing"
+    directory_to_monitor = os.getenv("base_dir")
     # Avvia il monitoraggio della directory
     start_directory_monitor(directory_to_monitor)
