@@ -25,6 +25,14 @@ class FileHandler(FileSystemEventHandler):
             print(f"Errore di connessione al database: {e}")
             self.conn = None
             self.cursor = None
+        #get tbl metadata present in db
+        self.cursor.execute(f"""SELECT  table_name, STRING_AGG(column_name, ',') cols  FROM  information_schema.columns where table_schema='public'    group by 1 """)
+        metadata=self.cursor.fetchall()
+        self.schema=dict(metadata)
+        
+        self.conn.commit()
+        print(self.schema)
+
 
     def on_created(self, event):
         # Verifica se il file creato è un CSV
@@ -45,9 +53,9 @@ class FileHandler(FileSystemEventHandler):
             #technical fieds
             df.insert(0,"insert_in_raw_timestamp",datetime.now())  
             df.insert(1,"row_number",range(0,len(df)))  
-            table_name ,columns=get_table(csv_file_path)
+            table_name ,columns=self.get_table(csv_file_path)
             insert_query = f"""
-                INSERT INTO {table_name} ({','.join(columns)})
+                INSERT INTO {table_name} ({columns})
                 VALUES %s
             """
             batch_size = 10000  # Number of rows per batch
@@ -67,16 +75,19 @@ class FileHandler(FileSystemEventHandler):
         except Exception as e:
             self.conn.rollback()  # Se c'è un errore, rollback della transazione
             print(f"Errore durante l'inserimento da {csv_file_path}: {e}")
-def get_table(csv_file_path):
-    table_name="project_table"
-    columns=["insert_in_raw_timestamp", "row_number", "nome", "cognome", "anni"]
-    return table_name,columns
+    def get_table(self,csv_file_path):
+        try:
+            dir_name=csv_file_path.replace("/home/fabian/Documents/data_eng/local_etl/landing"+"/","").split('/')[-2]
+            columns=self.schema[file_name]
+        except KeyError as e:
+            print(f"Error {e} doesn't exist in db")
+        return dir_name,columns
 
 # Funzione per avviare il monitoraggio
 def start_directory_monitor(directory_path):
     event_handler = FileHandler()
     observer = Observer()
-    observer.schedule(event_handler, directory_path, recursive=False)
+    observer.schedule(event_handler, directory_path, recursive=True)
     observer.start()
     print(f"Inizia a monitorare la directory: {directory_path}")
     
