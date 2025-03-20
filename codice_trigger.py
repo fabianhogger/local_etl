@@ -41,24 +41,27 @@ class FileHandler(FileSystemEventHandler):
         
         try:
             df = pd.read_csv(csv_file_path, sep=",", skiprows=1)
-            insert_query = """
-                INSERT INTO project_table (insert_in_raw_timestamp, row_number, nome, cognome, anni)
+            table_name ,columns=get_table(csv_file_path)
+            insert_query = f"""
+                INSERT INTO {table_name} ({columns.join(',')})
                 VALUES (%s, %s, %s, %s, %s)
             """
-            
-            insert_timestamp = datetime.now()
-            data_tuples = [
-                (insert_timestamp, index + 1, row['nome'], row['cognome'], row['anni'])
-                for index, row in df.iterrows()
-            ]
-            
-            # Esegui l'inserimento dei dati nel database
-            self.cursor.executemany(insert_query, data_tuples)
-            self.conn.commit()
+            batch_size = 10000  # Number of rows per batch
+            num_batches = len(df) // batch_size + 1
+
+            for i in range(num_batches):
+                batch_df = df.iloc[i * batch_size:(i + 1) * batch_size]
+                execute_values(cursor, insert_query, batch_df.values)
+                self.conn.commit()            
+
             print(f"Dati da {csv_file_path} inseriti correttamente nella tabella.")
         except Exception as e:
             self.conn.rollback()  # Se c'è un errore, rollback della transazione
             print(f"Errore durante l'inserimento da {csv_file_path}: {e}")
+def get_table(csv_file_path):
+    table_name="project_table"
+    columns=["insert_in_raw_timestamp", "row_number", "nome", "cognome", "anni"]
+    return table_name,columns
 
 # Funzione per avviare il monitoraggio
 def start_directory_monitor(directory_path):
