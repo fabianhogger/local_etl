@@ -30,7 +30,7 @@ class FileHandler(FileSystemEventHandler):
             self.conn = None
             self.cursor = None
         #get tbl metadata present in db
-        self.cursor.execute(f"""SELECT  table_name, STRING_AGG(column_name, ',') cols  FROM  information_schema.columns where table_schema='public'    group by 1 """)
+        self.cursor.execute(f"""select * from my_tbls_schema """)
         metadata=self.cursor.fetchall()
         self.schema=dict(metadata)
         
