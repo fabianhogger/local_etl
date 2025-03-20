@@ -7,6 +7,9 @@ from watchdog.events import FileSystemEventHandler
 import uuid
 from datetime import datetime
 from psycopg2.extras import execute_values
+import logging
+
+logging.basicConfig(filename='log/myapp.log',level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Classe di gestione degli eventi
 class FileHandler(FileSystemEventHandler):
@@ -31,8 +34,11 @@ class FileHandler(FileSystemEventHandler):
         self.schema=dict(metadata)
         
         self.conn.commit()
-        print(self.schema)
-
+    def close_connection(self):
+        if self.conn:
+            self.cursor.close()
+            self.conn.close()
+            logging.info("Database connection closed")
 
     def on_created(self, event):
         # Verifica se il file creato è un CSV
@@ -45,7 +51,7 @@ class FileHandler(FileSystemEventHandler):
     # Funzione per caricare i dati nel database
     def load_csv_to_db(self, csv_file_path):
         if self.conn is None or self.cursor is None:
-            print("Connessione al database non disponibile.")
+            logging.error("Database connection not available.")
             return
         
         try:
@@ -54,33 +60,38 @@ class FileHandler(FileSystemEventHandler):
             df.insert(0,"insert_in_raw_timestamp",datetime.now())  
             df.insert(1,"row_number",range(0,len(df)))  
             table_name ,columns=self.get_table(csv_file_path)
+            if table_name is None:
+                logging.error(f"Skipping {csv_file_path}: Table not found.")
+                return
             insert_query = f"""
                 INSERT INTO {table_name} ({columns})
                 VALUES %s
             """
-            batch_size = 10000  # Number of rows per batch
-            num_batches = len(df) // batch_size + 1
-
-           
-            for i in range(num_batches):
+            batch_size = 5000  # Number of rows per batch
+ 
+            for i in range(0, len(df), batch_size):
+                batch_df = df.iloc[i : i + batch_size]
                 try:
-                    batch_df = df.iloc[i * batch_size:(i + 1) * batch_size]
                     execute_values(self.cursor, insert_query, batch_df.values)
                     self.conn.commit()
-                    print("Insert status:", self.cursor.statusmessage)  # Should print "INSERT 0 X"
-
+                    logging.info(f"Inserted batch {i // batch_size + 1} into {table_name}")
                 except psycopg2.Error as e:
-                    print("Error:", e)            
-            print(f"Dati da {csv_file_path} inseriti correttamente nella tabella.")
+                    self.conn.rollback()
+                    logging.error(f"Database insert error: {e}")
         except Exception as e:
-            self.conn.rollback()  # Se c'è un errore, rollback della transazione
-            print(f"Errore durante l'inserimento da {csv_file_path}: {e}")
+            logging.error(f"Error processing {csv_file_path}: {e}")
+
     def get_table(self,csv_file_path):
         try:
             dir_name=csv_file_path.replace("/home/fabian/Documents/data_eng/local_etl/landing"+"/","").split('/')[-2]
-            columns=self.schema[file_name]
+            columns = self.schema.get(dir_name)
+
+            if columns is None:
+                raise KeyError(f"Table '{dir_name}' not found in schema metadata.")
+                return dir_name, None
         except KeyError as e:
-            print(f"Error {e} doesn't exist in db")
+            logging.error(f"Error: {e}")
+            return None, None
         return dir_name,columns
 
 # Funzione per avviare il monitoraggio
