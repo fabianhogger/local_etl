@@ -12,8 +12,8 @@ with tmp as (SELECT     *
  FROM
     information_schema.columns where table_schema='insert_my_db_name_here'
 	 order by table_name,ordinal_position)
-	 SELECT     table_name, STRING_AGG(column_name, ',') A
+	 SELECT     table_name, STRING_AGG(column_name, ',')  cols
  FROM
-   tmp where table_schema='public'
+   tmp where table_schema='insert_my_db_name_here'
 	group by 1  
 ```
