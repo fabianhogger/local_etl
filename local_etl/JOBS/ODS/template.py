@@ -26,12 +26,14 @@ class Transfomation():
 		return df
 
 	def write_to_db(self,df,table_name):
-		with self.engine.connect() as conn:
-			 df.to_sql(table_name,conn,if_exists='append',index=False)
-
+		 df.to_sql(table_name, self.engine,if_exists='append',index=False)
+	
+	def close(self):
+		self.engine.dispose()
 
 if __name__ == "__main__":
 	Transformation_obj=Transfomation()
 	df=Transformation_obj.load_from_db("project_table")
 	tranformed=Transformation_obj.transform(df)
 	Transformation_obj.write_to_db(df,"project_table")
+	Transformation_obj.close()
