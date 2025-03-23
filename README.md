@@ -1,6 +1,4 @@
-# Data-Architecture
-
-## Local ETL
+# Local ETL
 	local etl like system using pandas & postgres
 ## Instructions
 
