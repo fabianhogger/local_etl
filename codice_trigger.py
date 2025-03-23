@@ -60,7 +60,7 @@ class FileHandler(FileSystemEventHandler):
             #technical fieds
             df.insert(0,"insert_in_raw_timestamp",datetime.now())  
             df.insert(1,"row_number",range(0,len(df)))  
-            table_name ,columns=self.get_table(csv_file_path)
+            table_name ,columns=self.get_schema(csv_file_path)
             if table_name is None:
                 logging.error(f"Skipping {csv_file_path}: Table not found.")
                 return
@@ -82,7 +82,7 @@ class FileHandler(FileSystemEventHandler):
         except Exception as e:
             logging.error(f"Error processing {csv_file_path}: {e}")
 
-    def get_table(self,csv_file_path):
+    def get_schema(self,csv_file_path):
         try:
             dir_name=csv_file_path.replace(os.getenv("base_dir")+"/","").split('/')[-2]
             columns = self.schema.get(dir_name)
